@@ -220,6 +220,21 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	}
 
 	/**
+	 * Is process cancelled
+	 *
+	 * Check whether the current process is cancelled
+	 * in a background process.
+	 */
+	protected function is_process_cancelled() {
+		if ( get_site_transient( $this->identifier . '_process_cancelled' ) ) {
+			// Process already running.
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Lock process
 	 *
 	 * Lock the process so that multiple instances can't run simultaneously.
@@ -313,7 +328,7 @@ abstract class WP_Background_Process extends WP_Async_Request {
 			}
 
 			// Update or delete current batch.
-			if ( ! empty( $batch->data ) ) {
+			if ( ! empty( $batch->data ) && ! $this->is_process_cancelled() ) {
 				$this->update( $batch->key, $batch->data );
 			} else {
 				$this->delete( $batch->key );
@@ -401,6 +416,7 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	protected function complete() {
 		// Unschedule the cron healthcheck.
 		$this->clear_scheduled_event();
+		delete_site_transient( $this->identifier . '_process_cancelled' );
 	}
 
 	/**
@@ -480,8 +496,10 @@ abstract class WP_Background_Process extends WP_Async_Request {
 			$batch = $this->get_batch();
 
 			$this->delete( $batch->key );
-
+			$this->unlock_process();
 			wp_clear_scheduled_hook( $this->cron_hook_identifier );
+
+			set_site_transient( $this->identifier . '_process_cancelled', 1 );
 		}
 
 	}
