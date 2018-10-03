@@ -227,7 +227,6 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	 */
 	protected function is_process_cancelled() {
 		if ( get_site_transient( $this->identifier . '_process_cancelled' ) ) {
-			// Process already running.
 			return true;
 		}
 
