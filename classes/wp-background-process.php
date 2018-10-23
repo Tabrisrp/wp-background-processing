@@ -415,6 +415,7 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	protected function complete() {
 		// Unschedule the cron healthcheck.
 		$this->clear_scheduled_event();
+
 		\rocket_direct_filesystem()->delete( WP_ROCKET_CACHE_ROOT_PATH . '.' . $this->identifier . '_process_cancelled' );
 	}
 
