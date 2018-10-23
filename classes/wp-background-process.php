@@ -226,11 +226,11 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	 * in a background process.
 	 */
 	protected function is_process_cancelled() {
-		if ( get_site_transient( $this->identifier . '_process_cancelled' ) ) {
-			return true;
+		if ( ! \rocket_direct_filesystem()->exists( WP_ROCKET_CACHE_ROOT_PATH . '.' . $this->identifier . '_process_cancelled' ) ) {
+			return false;
 		}
 
-		return false;
+		return true;
 	}
 
 	/**
@@ -320,7 +320,7 @@ abstract class WP_Background_Process extends WP_Async_Request {
 					unset( $batch->data[ $key ] );
 				}
 
-				if ( $this->time_exceeded() || $this->memory_exceeded() ) {
+				if ( $this->time_exceeded() || $this->memory_exceeded() || $this->is_process_cancelled() ) {
 					// Batch limits reached.
 					break;
 				}
@@ -332,7 +332,7 @@ abstract class WP_Background_Process extends WP_Async_Request {
 			} else {
 				$this->delete( $batch->key );
 			}
-		} while ( ! $this->time_exceeded() && ! $this->memory_exceeded() && ! $this->is_queue_empty() );
+		} while ( ! $this->time_exceeded() && ! $this->memory_exceeded() && ! $this->is_queue_empty() && ! $this->is_process_cancelled() );
 
 		$this->unlock_process();
 
@@ -415,7 +415,8 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	protected function complete() {
 		// Unschedule the cron healthcheck.
 		$this->clear_scheduled_event();
-		delete_site_transient( $this->identifier . '_process_cancelled' );
+
+		\rocket_direct_filesystem()->delete( WP_ROCKET_CACHE_ROOT_PATH . '.' . $this->identifier . '_process_cancelled' );
 	}
 
 	/**
@@ -493,12 +494,11 @@ abstract class WP_Background_Process extends WP_Async_Request {
 	public function cancel_process() {
 		if ( ! $this->is_queue_empty() ) {
 			$batch = $this->get_batch();
-
 			$this->delete( $batch->key );
 			$this->unlock_process();
 			wp_clear_scheduled_hook( $this->cron_hook_identifier );
 
-			set_site_transient( $this->identifier . '_process_cancelled', 1 );
+			\rocket_direct_filesystem()->touch( WP_ROCKET_CACHE_ROOT_PATH . '.' . $this->identifier . '_process_cancelled' );
 		}
 
 	}
